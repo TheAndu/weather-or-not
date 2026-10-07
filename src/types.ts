@@ -53,6 +53,13 @@ export interface WeatherData {
 export interface WeatherBundle {
   location: GeoLocation;
   weather: WeatherData;
+  fetchedAt: number;
+  fromCache: boolean;
+}
+
+export interface ClothingRecommendation {
+  items: string[];
+  summary: string;
 }
 
 export interface WeatherError {

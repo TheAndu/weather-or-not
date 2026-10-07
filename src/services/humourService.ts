@@ -111,9 +111,10 @@ const TEMP_QUIPS: Record<HumourMode, Record<string, string[]>> = {
       "Cold enough to ruin your whole day. Dress like you're going to war with the wind.",
       "The cold doesn't care about your feelings. And neither does the gust.",
     ],
-    mild: {
-      // placeholder, replaced below
-    } as unknown as string[],
+    mild: [
+      "Mild. You'll find a way to be disappointed anyway.",
+      "It's fine. That's the problem. It's aggressively fine.",
+    ],
     warm: [
       "It's warm. You'll still find something to complain about, won't you.",
       "Warm and pleasant. You have no excuse to be miserable today.",
@@ -124,12 +125,6 @@ const TEMP_QUIPS: Record<HumourMode, Record<string, string[]>> = {
     ],
   },
 };
-
-// Fix the 'mild' entry for brutal (the placeholder above was just to keep structure)
-(TEMP_QUIPS.brutal.mild as unknown as string[]) = [
-  "Mild. You'll find a way to be disappointed anyway.",
-  "It's fine. That's the problem. It's aggressively fine.",
-];
 
 const RAIN_QUIPS: Record<HumourMode, string[]> = {
   playful: [

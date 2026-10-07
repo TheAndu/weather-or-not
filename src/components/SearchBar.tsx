@@ -3,25 +3,30 @@ import type { GeoLocation } from '../types';
 import { searchLocations } from '../services/weatherService';
 
 interface Props {
-  onSearch: (query: string) => Promise<GeoLocation[]>;
   onSelect: (loc: GeoLocation) => void;
+  onUseMyLocation: () => void;
   loading: boolean;
+  geoLoading: boolean;
+  geoError: string | null;
 }
 
-export default function SearchBar({ onSelect, loading }: Props) {
+export default function SearchBar({ onSelect, onUseMyLocation, loading, geoLoading, geoError }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeoLocation[]>([]);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [searchDone, setSearchDone] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) {
       setResults([]);
+      setSearchDone(false);
       return;
     }
     setSearching(true);
+    setSearchDone(false);
     try {
       const res = await searchLocations(q);
       setResults(res);
@@ -30,6 +35,7 @@ export default function SearchBar({ onSelect, loading }: Props) {
       setResults([]);
     } finally {
       setSearching(false);
+      setSearchDone(true);
     }
   }, []);
 
@@ -47,6 +53,7 @@ export default function SearchBar({ onSelect, loading }: Props) {
     setQuery('');
     setResults([]);
     setOpen(false);
+    setSearchDone(false);
     onSelect(loc);
   };
 
@@ -60,8 +67,10 @@ export default function SearchBar({ onSelect, loading }: Props) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  const showNoResults = searchDone && !searching && results.length === 0 && query.trim().length >= 2;
+
   return (
-    <div className="search-container" ref={containerRef}>
+    <div className="search-area" ref={containerRef}>
       <div className="search-input-wrapper">
         <svg className="search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8" />
@@ -70,7 +79,7 @@ export default function SearchBar({ onSelect, loading }: Props) {
         <input
           type="text"
           className="search-input"
-          placeholder="Search a city…"
+          placeholder="Search a city in the UK, Netherlands, or Denmark…"
           value={query}
           onChange={handleInput}
           onFocus={() => results.length > 0 && setOpen(true)}
@@ -78,6 +87,28 @@ export default function SearchBar({ onSelect, loading }: Props) {
         />
         {(searching || loading) && <span className="search-spinner" />}
       </div>
+
+      <button
+        className="geo-btn"
+        onClick={onUseMyLocation}
+        disabled={geoLoading}
+        aria-label="Use my current location"
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="4" />
+          <line x1="12" y1="2" x2="12" y2="6" />
+          <line x1="12" y1="18" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="22" y2="12" />
+        </svg>
+        <span>{geoLoading ? 'Locating…' : 'Use my location'}</span>
+      </button>
+
+      {geoError && <p className="geo-error">{geoError}</p>}
+
+      <p className="search-hint">
+        We use your location only to fetch the weather. Coordinates are not stored or saved.
+      </p>
 
       {open && results.length > 0 && (
         <ul className="search-results" role="listbox">
@@ -90,6 +121,12 @@ export default function SearchBar({ onSelect, loading }: Props) {
             </li>
           ))}
         </ul>
+      )}
+
+      {showNoResults && (
+        <div className="search-empty">
+          No results found{query ? ` for "${query}"` : ''}. Try a different city name — results are limited to the UK, Netherlands, and Denmark.
+        </div>
       )}
     </div>
   );

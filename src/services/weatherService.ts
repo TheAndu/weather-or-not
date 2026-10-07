@@ -1,16 +1,19 @@
 import type { GeoLocation, WeatherData } from '../types';
 
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+const REVERSE_GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
+
+const ALLOWED_COUNTRIES = ['United Kingdom', 'Netherlands', 'Denmark'];
 
 export async function searchLocations(query: string): Promise<GeoLocation[]> {
   if (!query.trim()) return [];
-  const url = `${GEOCODE_URL}?name=${encodeURIComponent(query)}&count=8&language=en&format=json`;
+  const url = `${GEOCODE_URL}?name=${encodeURIComponent(query)}&count=20&language=en&format=json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Geocoding failed (${res.status})`);
   const data = await res.json();
   if (!data.results) return [];
-  return data.results.map((r: Record<string, unknown>) => ({
+  const mapped: GeoLocation[] = data.results.map((r: Record<string, unknown>) => ({
     id: r.id as number,
     name: r.name as string,
     latitude: r.latitude as number,
@@ -19,9 +22,31 @@ export async function searchLocations(query: string): Promise<GeoLocation[]> {
     admin1: (r.admin1 as string) ?? undefined,
     timezone: (r.timezone as string) ?? undefined,
   }));
+  return mapped.filter((loc) => ALLOWED_COUNTRIES.includes(loc.country));
 }
 
-export async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
+export async function reverseGeocode(lat: number, lon: number): Promise<GeoLocation | null> {
+  const url = `${REVERSE_GEOCODE_URL}?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Reverse geocoding failed (${res.status})`);
+  const data = await res.json();
+  if (!data.results || data.results.length === 0) return null;
+  const r = data.results[0] as Record<string, unknown>;
+  return {
+    id: r.id as number,
+    name: (r.name as string) ?? 'Current location',
+    latitude: r.latitude as number,
+    longitude: r.longitude as number,
+    country: (r.country as string) ?? '',
+    admin1: (r.admin1 as string) ?? undefined,
+    timezone: (r.timezone as string) ?? undefined,
+  };
+}
+
+export async function fetchWeather(
+  lat: number,
+  lon: number,
+): Promise<WeatherData> {
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
@@ -160,3 +185,5 @@ export function weatherCodeToEmoji(code: number, isDay = true): string {
   if (code >= 95) return '⛈️';
   return '🌡️';
 }
+
+export { ALLOWED_COUNTRIES };

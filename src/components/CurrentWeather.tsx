@@ -1,20 +1,30 @@
 import type { HumourMode, WeatherBundle } from '../types';
 import { weatherCodeToText, weatherCodeToEmoji } from '../services/weatherService';
 import { HUMOUR_EMOJI, HUMOUR_LABELS } from '../services/humourService';
+import { generateClothingRecommendation } from '../services/clothingService';
 
 interface Props {
   bundle: WeatherBundle;
   quip: string;
   humour: HumourMode;
+  fromCache: boolean;
+  fetchedAt: number;
 }
 
-export default function CurrentWeather({ bundle, quip, humour }: Props) {
+export default function CurrentWeather({ bundle, quip, humour, fromCache, fetchedAt }: Props) {
   const { location, weather } = bundle;
   const c = weather.current;
 
   const locationLabel = [location.name, location.admin1, location.country]
     .filter(Boolean)
     .join(', ');
+
+  const clothing = generateClothingRecommendation(c);
+
+  const fetchedLabel = new Date(fetchedAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
     <section className="current-weather card">
@@ -26,6 +36,17 @@ export default function CurrentWeather({ bundle, quip, humour }: Props) {
         <div className="current-emoji">{weatherCodeToEmoji(c.weatherCode, c.isDay)}</div>
       </div>
 
+      {fromCache ? (
+        <div className="cache-notice" role="status">
+          <span className="cache-icon">📡</span>
+          <span>
+            Offline — showing cached weather from {fetchedLabel}. This may not reflect current conditions.
+          </span>
+        </div>
+      ) : (
+        <div className="updated-time">Updated at {fetchedLabel}</div>
+      )}
+
       <div className="current-temp-row">
         <div className="current-temp">{Math.round(c.temperature)}°</div>
         <div className="current-desc">{weatherCodeToText(c.weatherCode)}</div>
@@ -34,6 +55,15 @@ export default function CurrentWeather({ bundle, quip, humour }: Props) {
       <div className="current-quip">
         <span className="quip-badge">{HUMOUR_EMOJI[humour]} {HUMOUR_LABELS[humour]}</span>
         <p className="quip-text">{quip}</p>
+      </div>
+
+      <div className="clothing-rec card-inner">
+        <h4 className="rec-title">🧥 What to wear</h4>
+        <ul className="rec-items">
+          {clothing.items.map((item, i) => (
+            <li key={i} className="rec-item">{item}</li>
+          ))}
+        </ul>
       </div>
 
       <div className="current-grid">
