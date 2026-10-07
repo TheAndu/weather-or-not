@@ -44,7 +44,7 @@ export default function SearchBar({ onSelect, onUseMyLocation, loading, geoLoadi
       const val = e.target.value;
       setQuery(val);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => void doSearch(val), 350);
+      debounceRef.current = setTimeout(() => void doSearch(val), 500);
     },
     [doSearch],
   );

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GeoLocation, HumourMode, WeatherBundle } from './types';
-import { fetchWeather, reverseGeocode } from './services/weatherService';
+import { fetchWeather, reverseGeocode, RateLimitError } from './services/weatherService';
 import { generateQuip } from './services/humourService';
 import SearchBar from './components/SearchBar';
 import CurrentWeather from './components/CurrentWeather';
@@ -26,24 +26,41 @@ export default function App() {
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
+  const bundleRef = useRef<WeatherBundle | null>(null);
+
   const loadWeather = useCallback(async (loc: GeoLocation) => {
     setLoading(true);
     setError(null);
     try {
       const weather = await fetchWeather(loc.latitude, loc.longitude);
-      setBundle({ location: loc, weather, fetchedAt: Date.now(), fromCache: false });
+      const newBundle: WeatherBundle = {
+        location: loc,
+        weather,
+        fetchedAt: Date.now(),
+        fromCache: false,
+      };
+      bundleRef.current = newBundle;
+      setBundle(newBundle);
     } catch (e) {
-      if (bundle) {
-        setBundle({ ...bundle, fromCache: true });
-        setError(null);
+      if (e instanceof RateLimitError) {
+        if (bundleRef.current) {
+          setBundle({ ...bundleRef.current, fromCache: true });
+        }
+        setError(
+          'The weather service is busy right now. Showing the last weather we loaded — please try again in a few minutes.',
+        );
       } else {
+        if (bundleRef.current) {
+          setBundle({ ...bundleRef.current, fromCache: true });
+        }
         setError(e instanceof Error ? e.message : 'Failed to load weather');
       }
     } finally {
       setLoading(false);
     }
-  }, [bundle]);
+  }, []);
 
+  // Load London once on mount — never re-runs
   useEffect(() => {
     void loadWeather(DEFAULT_LOCATION);
   }, [loadWeather]);

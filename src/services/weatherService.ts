@@ -1,10 +1,23 @@
 import type { GeoLocation, WeatherData } from '../types';
 
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
-const REVERSE_GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 
 const ALLOWED_COUNTRIES = ['United Kingdom', 'Netherlands', 'Denmark'];
+
+const WEATHER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry {
+  data: WeatherData;
+  timestamp: number;
+}
+
+const weatherCache = new Map<string, CacheEntry>();
+const inflightWeather = new Map<string, Promise<WeatherData>>();
+
+function cacheKey(lat: number, lon: number): string {
+  return `${lat.toFixed(3)},${lon.toFixed(3)}`;
+}
 
 export async function searchLocations(query: string): Promise<GeoLocation[]> {
   if (!query.trim()) return [];
@@ -26,7 +39,7 @@ export async function searchLocations(query: string): Promise<GeoLocation[]> {
 }
 
 export async function reverseGeocode(lat: number, lon: number): Promise<GeoLocation | null> {
-  const url = `${REVERSE_GEOCODE_URL}?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`;
+  const url = `${GEOCODE_URL}?latitude=${lat}&longitude=${lon}&count=1&language=en&format=json`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Reverse geocoding failed (${res.status})`);
   const data = await res.json();
@@ -43,10 +56,33 @@ export async function reverseGeocode(lat: number, lon: number): Promise<GeoLocat
   };
 }
 
-export async function fetchWeather(
-  lat: number,
-  lon: number,
-): Promise<WeatherData> {
+export async function fetchWeather(lat: number, lon: number): Promise<WeatherData> {
+  const key = cacheKey(lat, lon);
+
+  const cached = weatherCache.get(key);
+  if (cached && Date.now() - cached.timestamp < WEATHER_CACHE_TTL) {
+    return cached.data;
+  }
+
+  const existing = inflightWeather.get(key);
+  if (existing) return existing;
+
+  const promise = doFetchWeather(lat, lon)
+    .then((data) => {
+      weatherCache.set(key, { data, timestamp: Date.now() });
+      inflightWeather.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      inflightWeather.delete(key);
+      throw err;
+    });
+
+  inflightWeather.set(key, promise);
+  return promise;
+}
+
+async function doFetchWeather(lat: number, lon: number): Promise<WeatherData> {
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
@@ -83,6 +119,9 @@ export async function fetchWeather(
   });
 
   const res = await fetch(`${FORECAST_URL}?${params}`);
+  if (res.status === 429) {
+    throw new RateLimitError();
+  }
   if (!res.ok) throw new Error(`Weather fetch failed (${res.status})`);
   const d = await res.json();
 
@@ -121,6 +160,13 @@ export async function fetchWeather(
       sunset: d.daily.sunset,
     },
   };
+}
+
+export class RateLimitError extends Error {
+  constructor() {
+    super('Rate limit exceeded');
+    this.name = 'RateLimitError';
+  }
 }
 
 function findNowIndex(times: string[]): number {
