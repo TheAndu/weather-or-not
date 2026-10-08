@@ -21,8 +21,8 @@ export default defineConfig({
         name: 'Weather or Not',
         short_name: 'Weather',
         description: 'Weather with personality.',
-        start_url: '.',
-        scope: '.',
+        start_url: './',
+        scope: './',
         display: 'standalone',
         background_color: '#0f172a',
         theme_color: '#0f172a',
@@ -48,17 +48,12 @@ export default defineConfig({
       },
 
       workbox: {
-        navigateFallback: 'index.html',
-
-        globPatterns: [
-          '**/*.{js,css,html,svg,png,woff2}',
-        ],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
 
         runtimeCaching: [
           {
             urlPattern:
               /^https:\/\/geocoding-api\.open-meteo\.com\/.*/i,
-
             handler: 'NetworkFirst',
 
             options: {
@@ -78,7 +73,6 @@ export default defineConfig({
           {
             urlPattern:
               /^https:\/\/api\.open-meteo\.com\/.*/i,
-
             handler: 'NetworkFirst',
 
             options: {
